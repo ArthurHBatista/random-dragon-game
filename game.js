@@ -726,4 +726,213 @@ function desenharDragao() {
   px(2, 21 - passo, 4, 5, "#15803d");
 
   // Corpo verde + Jaqueta punk preta com tachinhas
-  px(-8
+  px(-8, 9, 15, 13, "#22c55e");
+  px(-7, 10, 12, 9, "#09090b");
+  px(-5, 11, 2, 2, "#f8fafc");
+  px(1, 11, 2, 2, "#f8fafc");
+
+  // Cabeça e focinho
+  px(-2, 1, 13, 9, "#22c55e");
+  px(8, 4, 5, 6, "#4ade80");
+
+  // Moicano punk rosa
+  px(-4, -3, 3, 4, "#ec4899");
+  px(0, -4, 3, 5, "#ec4899");
+  px(4, -2, 3, 4, "#ec4899");
+
+  // Óculos escuros rockstar
+  px(3, 3, 8, 3, "#000000");
+  px(5, 4, 3, 1, "#f97316");
+
+  // Guitarra Flying V vermelha
+  px(-1, 14, 10, 4, "#ef4444");
+  px(8, 13, 8, 2, "#f8fafc");
+
+  ctx.restore();
+}
+
+function desenharGuerreiros() {
+  for (const g of guerreiros) {
+    if (!g.vivo) continue;
+    const x = Math.round(g.x);
+    const y = Math.round(g.y);
+
+    // Barra de vida acima do guerreiro (se tiver mais de 1 de vida)
+    if (g.maxVida > 1) {
+      px(x + 2, y - 6, 16, 3, "#09090b");
+      px(x + 2, y - 6, Math.round((g.vida / g.maxVida) * 16), 3, "#ef4444");
+    }
+
+    const corArmadura = g.piscarDano > 0 ? "#ffffff" : (g.tipo === "escudeiro" ? "#64748b" : "#94a3b8");
+
+    // Corpo e armadura
+    px(x + 4, y + 8, 12, 12, corArmadura);
+    // Capacete
+    px(x + 5, y + 1, 10, 7, "#cbd5e1");
+    px(x + 6, y + 4, 8, 2, "#0f172a");
+
+    // Detalhe por classe de inimigo
+    if (g.tipo === "escudeiro") {
+      // Escudo pesado frontal e pluma azul
+      px(x + 8, y - 2, 4, 3, "#38bdf8");
+      px(x + (g.dir === -1 ? 1 : 14), y + 7, 5, 13, "#1e293b");
+      px(x + (g.dir === -1 ? 2 : 15), y + 8, 3, 11, "#38bdf8");
+    } else if (g.tipo === "arqueiro") {
+      // Capuz verde-escuro e arco
+      px(x + 5, y, 10, 3, "#15803d");
+      px(x + (g.dir === -1 ? 2 : 16), y + 6, 2, 12, "#d97706");
+    } else {
+      // Soldado com pluma vermelha e espada
+      px(x + 8, y - 2, 4, 3, "#dc2626");
+      px(x + (g.dir === -1 ? 2 : 16), y + 3, 2, 11, "#f8fafc");
+    }
+
+    // Botas
+    px(x + 5, y + 20, 4, 4, "#334155");
+    px(x + 11, y + 20, 4, 4, "#334155");
+  }
+}
+
+function desenharProjeteisEParticulas() {
+  // Bolas de fogo do dragão
+  for (const f of projeteisDragao) {
+    px(f.x, f.y, f.w, f.h, f.critico ? "#ec4899" : "#f97316");
+    px(f.x + 2, f.y + 2, f.w - 4, f.h - 4, "#facc15");
+  }
+
+  // Flechas dos arqueiros
+  for (const fl of projeteisInimigos) {
+    px(fl.x, fl.y, fl.w, fl.h, "#f8fafc");
+    px(fl.vx < 0 ? fl.x : fl.x + fl.w - 2, fl.y - 1, 2, 5, "#ef4444");
+  }
+
+  // Partículas pixeladas
+  for (const pt of particulas) {
+    px(pt.x, pt.y, pt.tamanho, pt.tamanho, pt.cor);
+  }
+}
+
+function desenharBau() {
+  const x = Math.round(bauTesouro.x);
+  const y = Math.round(bauTesouro.y);
+
+  // Brilho dourado pulsante
+  if (Math.floor(frameContador / 15) % 2 === 0) {
+    px(x + 9, y - 5, 2, 2, "#facc15");
+    px(x + 16, y - 3, 2, 2, "#facc15");
+  }
+
+  px(x, y + 5, 22, 15, "#78350f");
+  px(x + 1, y, 20, 6, "#b45309");
+  px(x, y + 5, 22, 2, "#facc15");
+  px(x + 9, y + 4, 4, 5, "#facc15");
+}
+
+function desenhar() {
+  ctx.save();
+  ctx.scale(ESCALA_PIXEL, ESCALA_PIXEL);
+
+  if (tremorTela > 0) {
+    const dx = (Math.random() - 0.5) * 3;
+    const dy = (Math.random() - 0.5) * 3;
+    ctx.translate(dx, dy);
+  }
+
+  desenharCenario();
+  desenharPlataformas();
+  desenharBau();
+  desenharGuerreiros();
+  desenharDragao();
+  desenharProjeteisEParticulas();
+
+  ctx.restore();
+}
+
+function loopPrincipal() {
+  atualizar();
+  desenhar();
+  requestAnimationFrame(loopPrincipal);
+}
+
+// ============================================================
+// CONTROLES DE TECLADO NO PC E BOTÕES NA TELA
+// ============================================================
+window.addEventListener("keydown", (e) => {
+  if (["ArrowLeft", "KeyA"].includes(e.code)) {
+    e.preventDefault();
+    teclas.esquerda = true;
+  }
+  if (["ArrowRight", "KeyD"].includes(e.code)) {
+    e.preventDefault();
+    teclas.direita = true;
+  }
+  if (["ArrowUp", "Space", "KeyW"].includes(e.code)) {
+    e.preventDefault();
+    acionarPulo();
+  }
+  if (["ShiftLeft", "ShiftRight", "KeyK"].includes(e.code)) {
+    e.preventDefault();
+    acionarDash();
+  }
+  if (["Enter", "KeyF", "KeyJ"].includes(e.code)) {
+    e.preventDefault();
+    acionarAtaqueRitmo();
+  }
+});
+
+window.addEventListener("keyup", (e) => {
+  if (["ArrowLeft", "KeyA"].includes(e.code)) teclas.esquerda = false;
+  if (["ArrowRight", "KeyD"].includes(e.code)) teclas.direita = false;
+});
+
+// Botões direcionais na tela (suportam segurar o dedo ou mouse)
+function vincularBotaoSegurar(botao, direcao) {
+  const ativar = (e) => { e.preventDefault(); teclas[direcao] = true; };
+  const desativar = (e) => { e.preventDefault(); teclas[direcao] = false; };
+  botao.addEventListener("mousedown", ativar);
+  botao.addEventListener("mouseup", desativar);
+  botao.addEventListener("mouseleave", desativar);
+  botao.addEventListener("touchstart", ativar, { passive: false });
+  botao.addEventListener("touchend", desativar, { passive: false });
+}
+
+vincularBotaoSegurar(btnEsq, "esquerda");
+vincularBotaoSegurar(btnDir, "direita");
+
+btnPular.addEventListener("click", acionarPulo);
+btnDash.addEventListener("click", acionarDash);
+btnAtacar.addEventListener("click", acionarAtaqueRitmo);
+botaoComecar.addEventListener("click", iniciarJogo);
+botaoReiniciar.addEventListener("click", iniciarJogo);
+
+botaoTema.addEventListener("click", () => {
+  document.body.classList.toggle("tema-claro");
+  notificarAlturaPortal();
+});
+
+// Contrato do Portal (vrgame)
+function notificarAlturaPortal() {
+  window.parent.postMessage({ type: "vrgame:resize", height: document.documentElement.scrollHeight }, "*");
+}
+
+window.addEventListener("message", (e) => {
+  const dados = e.data;
+  if (!dados || typeof dados !== "object") return;
+  if (dados.type === "vrgame:theme") {
+    document.body.classList.toggle("tema-claro", dados.theme === "light");
+    notificarAlturaPortal();
+  }
+  if (dados.type === "vrgame:fullscreen") {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.().catch(() => {});
+  }
+});
+
+window.addEventListener("resize", notificarAlturaPortal);
+window.addEventListener("load", () => {
+  desenhar();
+  window.parent.postMessage({ type: "vrgame:ready" }, "*");
+  notificarAlturaPortal();
+});
+
+requestAnimationFrame(loopPrincipal);
