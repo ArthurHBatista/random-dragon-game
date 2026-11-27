@@ -1,14 +1,22 @@
 // ============================================================
-// METAL DRAGON - Jogo de Plataforma + Ritmo Rock/Metal
+// METAL DRAGON - Edição Pixel Art HD + Combate & Controle PC
 // Autor: Arthur ("Thurzin") - Turma 8C
 // ============================================================
 
 const canvas = document.getElementById("tela-jogo");
 const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
+// Resolução interna baixa (480x220) ampliada 2x no canvas (960x440)
+// Isso cria pixels verdadeiros e super nítidos!
+const LARGURA_BASE = 480;
+const ALTURA_BASE = 220;
+const ESCALA_PIXEL = 2;
 
 // Elementos da interface
 const vidasTexto = document.getElementById("vidas-texto");
 const faseTexto = document.getElementById("fase-texto");
+const comboTexto = document.getElementById("combo-texto");
 const pontosTexto = document.getElementById("pontos-texto");
 const errosRitmoTexto = document.getElementById("erros-ritmo-texto");
 const feedbackBanner = document.getElementById("feedback-banner");
@@ -24,276 +32,329 @@ const zonaAlvo = document.getElementById("zona-alvo");
 const botaoComecar = document.getElementById("botao-comecar");
 const botaoReiniciar = document.getElementById("botao-reiniciar");
 const botaoTema = document.getElementById("botao-tema");
+const btnEsq = document.getElementById("btn-esq");
+const btnDir = document.getElementById("btn-dir");
 const btnPular = document.getElementById("btn-pular");
+const btnDash = document.getElementById("btn-dash");
 const btnAtacar = document.getElementById("btn-atacar");
 
-// Preferência de redução de movimento do navegador
 const prefereMenosAnimacao = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Configurações gerais do jogo
+// Constantes do jogo
 const TOTAL_FASES = 6;
-const PONTOS_MAXIMOS = 1200;
-const CHAO_Y = 290;
-const GRAVIDADE = 0.65;
-const FORCA_PULO = -13.5;
+const PONTOS_MAXIMOS = 2500;
+const CHAO_Y = 184;
+const GRAVIDADE = 0.34;
+const FORCA_PULO = -6.8;
 
-// Estado principal do jogo
-let estadoJogo = "inicio"; // "inicio", "jogando", "fim"
+// Estado principal
+let estadoJogo = "inicio";
 let faseAtual = 1;
 let vidas = 3;
 let pontos = 0;
+let combo = 0;
 let errosRitmoSeguidos = 0;
 let tempoInicioPartida = 0;
-let ultimoQuadro = 0;
+let frameContador = 0;
+let tremorTela = 0;
 let timerFeedback = null;
 
-// Variáveis do medidor de ritmo (0 a 100)
+// Medidor de ritmo (0 a 100)
 let posicaoRitmo = 0;
 let direcaoRitmo = 1;
-let velocidadeRitmo = 1.25;
+let velocidadeRitmo = 1.3;
 
-// Objeto do Dragão Roqueiro
+// Controles de teclado/toque ativos
+const teclas = {
+  esquerda: false,
+  direita: false
+};
+
+// Dragão Roqueiro (coordenadas em pixels reais da grade 480x220)
 const dragao = {
-  x: 70,
-  y: CHAO_Y - 48,
-  largura: 44,
-  altura: 48,
-  velocidadeY: 0,
-  velocidadeX: 3.1,
+  x: 22,
+  y: CHAO_Y - 26,
+  largura: 22,
+  altura: 26,
+  vx: 0,
+  vy: 0,
+  direcao: 1, // 1 = direita, -1 = esquerda
   noChao: true,
-  invulneravelTempo: 0,
+  invulneravel: 0,
+  dashTempo: 0,
+  dashRecarga: 0,
   atacandoTempo: 0
 };
 
-// Elementos da fase atual
+// Entidades da fase
 let plataformas = [];
 let guerreiros = [];
-let bolasDeFogo = [];
-let bauTesouro = { x: 720, y: CHAO_Y - 40, largura: 42, altura: 40 };
-let raiosFundo = [];
+let projeteisDragao = [];
+let projeteisInimigos = [];
+let particulas = [];
+let bauTesouro = { x: 430, y: CHAO_Y - 20, largura: 22, altura: 20 };
 
 // ============================================================
-// SISTEMA DE SOM ROCK/8-BIT OFFLINE (Web Audio API)
+// ÁUDIO CHIPTUNE / METAL SINTETIZADO OFFLINE
 // ============================================================
 let audioCtx = null;
 
-function tocarSom(frequencia, tipo, duracao, volume = 0.12) {
+function tocarSom(freq, tipo, duracao, vol = 0.1) {
   try {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume();
-    }
-    const oscilador = audioCtx.createOscillator();
-    const ganho = audioCtx.createGain();
-    oscilador.type = tipo;
-    oscilador.frequency.setValueAtTime(frequencia, audioCtx.currentTime);
-    ganho.gain.setValueAtTime(volume, audioCtx.currentTime);
-    ganho.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracao);
-
-    oscilador.connect(ganho);
-    ganho.connect(audioCtx.destination);
-    oscilador.start();
-    oscilador.stop(audioCtx.currentTime + duracao);
-  } catch (e) {
-    // Ignora caso o navegador bloqueie áudio antes de interação
-  }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duracao);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duracao);
+  } catch (e) {}
 }
 
-function somPulo() {
-  tocarSom(260, "square", 0.14);
+function somPulo() { tocarSom(290, "square", 0.11); }
+function somDash() { tocarSom(420, "sawtooth", 0.12, 0.12); }
+function somFogo() {
+  tocarSom(120, "sawtooth", 0.15, 0.15);
+  setTimeout(() => tocarSom(240, "square", 0.18, 0.12), 50);
 }
-
-function somFogoAcerto() {
-  tocarSom(110, "sawtooth", 0.18, 0.18);
-  setTimeout(() => tocarSom(220, "sawtooth", 0.22, 0.15), 60);
-}
-
-function somErro() {
-  tocarSom(95, "triangle", 0.28, 0.2);
-}
-
-function somVitoriaFase() {
-  tocarSom(330, "square", 0.12);
-  setTimeout(() => tocarSom(440, "square", 0.12), 110);
-  setTimeout(() => tocarSom(660, "square", 0.25), 220);
+function somHitInimigo() { tocarSom(90, "square", 0.14, 0.16); }
+function somErro() { tocarSom(75, "triangle", 0.25, 0.18); }
+function somVitoria() {
+  tocarSom(330, "square", 0.1);
+  setTimeout(() => tocarSom(440, "square", 0.1), 100);
+  setTimeout(() => tocarSom(660, "square", 0.22), 200);
 }
 
 // ============================================================
-// MENSAGENS RÁPIDAS DE EXPLICAÇÃO (FEEDBACK)
+// FEEDBACK E HUD
 // ============================================================
 function mostrarFeedback(texto, tipo) {
   feedbackBanner.textContent = texto;
   feedbackBanner.className = "feedback-banner " + (tipo === "acerto" ? "feedback-acerto" : "feedback-erro");
-
   if (timerFeedback) clearTimeout(timerFeedback);
-  timerFeedback = setTimeout(() => {
-    feedbackBanner.classList.add("oculto");
-  }, 2400);
+  timerFeedback = setTimeout(() => feedbackBanner.classList.add("oculto"), 2200);
 }
 
 function atualizarPainel() {
   vidasTexto.textContent = vidas > 0 ? "❤️".repeat(vidas) : "💀";
   faseTexto.textContent = `${faseAtual} / ${TOTAL_FASES}`;
+  comboTexto.textContent = `${combo}x`;
   pontosTexto.textContent = pontos;
   errosRitmoTexto.textContent = `Erros seguidos: ${errosRitmoSeguidos}/3`;
 }
 
+function criarParticulas(x, y, cor, quantidade = 10) {
+  if (prefereMenosAnimacao) return;
+  for (let i = 0; i < quantidade; i++) {
+    particulas.push({
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 3.5,
+      vy: (Math.random() - 0.8) * 3.2,
+      vida: 18 + Math.floor(Math.random() * 12),
+      cor,
+      tamanho: Math.random() > 0.5 ? 2 : 1
+    });
+  }
+}
+
 // ============================================================
-// MONTAGEM DAS 6 FASES (DIFICULDADE CRESCENTE)
+// 6 FASES ELABORADAS (PLATAFORMAS MÓVEIS + INIMIGOS VARIADOS)
 // ============================================================
-function carregarFase(numeroFase) {
-  // Reinicia posição do dragão no início da fase
-  dragao.x = 35;
+function carregarFase(num) {
+  dragao.x = 16;
   dragao.y = CHAO_Y - dragao.altura;
-  dragao.velocidadeY = 0;
+  dragao.vx = 0;
+  dragao.vy = 0;
+  dragao.direcao = 1;
   dragao.noChao = true;
-  dragao.invulneravelTempo = 45;
-  bolasDeFogo = [];
+  dragao.invulneravel = 40;
+  dragao.dashTempo = 0;
 
-  // Aumenta velocidade do ritmo e do dragão aos poucos
-  velocidadeRitmo = 1.15 + numeroFase * 0.22;
-  dragao.velocidadeX = 2.7 + numeroFase * 0.25;
+  projeteisDragao = [];
+  projeteisInimigos = [];
+  particulas = [];
 
-  // Define tamanho da zona verde de ritmo (vai ficando um pouco mais precisa)
-  const larguraZona = Math.max(16, 26 - numeroFase * 1.4);
-  const inicioZona = 50 - larguraZona / 2;
-  zonaAlvo.style.left = inicioZona + "%";
+  velocidadeRitmo = 1.25 + num * 0.18;
+  const larguraZona = Math.max(18, 28 - num * 1.4);
+  zonaAlvo.style.left = (50 - larguraZona / 2) + "%";
   zonaAlvo.style.width = larguraZona + "%";
 
-  // Layouts das 6 fases (plataformas sólidas sobre rio de lava)
+  // Tipos de guerreiros:
+  // "soldado" (patrulha), "escudeiro" (2 de vida, bloqueia de frente se não for combo), "arqueiro" (atira flechas)
   const mapas = {
     1: {
       plataformas: [
-        { x: 0, y: CHAO_Y, largura: 310, altura: 70 },
-        { x: 375, y: CHAO_Y, largura: 425, altura: 70 }
+        { x: 0, y: CHAO_Y, w: 145, h: 36 },
+        { x: 175, y: CHAO_Y - 14, w: 125, h: 50 },
+        { x: 330, y: CHAO_Y, w: 150, h: 36 }
       ],
       guerreiros: [
-        { x: 490, y: CHAO_Y - 46, largura: 38, altura: 46, vivo: true }
+        { tipo: "soldado", x: 230, y: CHAO_Y - 38, minX: 180, maxX: 280, vida: 1, maxVida: 1 },
+        { tipo: "soldado", x: 375, y: CHAO_Y - 24, minX: 335, maxX: 410, vida: 1, maxVida: 1 }
       ]
     },
     2: {
       plataformas: [
-        { x: 0, y: CHAO_Y, largura: 240, altura: 70 },
-        { x: 310, y: CHAO_Y - 20, largura: 200, altura: 90 },
-        { x: 575, y: CHAO_Y, largura: 225, altura: 70 }
+        { x: 0, y: CHAO_Y, w: 115, h: 36 },
+        { x: 145, y: CHAO_Y - 18, w: 75, h: 12, movelX: 35, vel: 0.7 },
+        { x: 285, y: CHAO_Y - 28, w: 195, h: 64 }
       ],
       guerreiros: [
-        { x: 420, y: CHAO_Y - 66, largura: 38, altura: 46, vivo: true },
-        { x: 640, y: CHAO_Y - 46, largura: 38, altura: 46, vivo: true }
+        { tipo: "soldado", x: 320, y: CHAO_Y - 52, minX: 290, maxX: 380, vida: 1, maxVida: 1 },
+        { tipo: "arqueiro", x: 405, y: CHAO_Y - 52, minX: 390, maxX: 420, vida: 1, maxVida: 1 }
       ]
     },
     3: {
       plataformas: [
-        { x: 0, y: CHAO_Y, largura: 200, altura: 70 },
-        { x: 270, y: CHAO_Y - 25, largura: 180, altura: 95 },
-        { x: 520, y: CHAO_Y, largura: 280, altura: 70 }
+        { x: 0, y: CHAO_Y, w: 110, h: 36 },
+        { x: 140, y: CHAO_Y - 22, w: 130, h: 58 },
+        { x: 305, y: CHAO_Y - 10, w: 175, h: 46 }
       ],
       guerreiros: [
-        { x: 375, y: CHAO_Y - 71, largura: 38, altura: 46, vivo: true },
-        { x: 615, y: CHAO_Y - 46, largura: 38, altura: 46, vivo: true }
+        { tipo: "escudeiro", x: 205, y: CHAO_Y - 46, minX: 150, maxX: 250, vida: 2, maxVida: 2 },
+        { tipo: "arqueiro", x: 385, y: CHAO_Y - 34, minX: 350, maxX: 415, vida: 1, maxVida: 1 }
       ]
     },
     4: {
       plataformas: [
-        { x: 0, y: CHAO_Y, largura: 180, altura: 70 },
-        { x: 255, y: CHAO_Y, largura: 165, altura: 70 },
-        { x: 495, y: CHAO_Y - 25, largura: 305, altura: 95 }
+        { x: 0, y: CHAO_Y, w: 95, h: 36 },
+        { x: 125, y: CHAO_Y - 25, w: 65, h: 12, movelY: 22, vel: 0.6 },
+        { x: 220, y: CHAO_Y - 34, w: 110, h: 70 },
+        { x: 360, y: CHAO_Y - 12, w: 120, h: 48 }
       ],
       guerreiros: [
-        { x: 345, y: CHAO_Y - 46, largura: 38, altura: 46, vivo: true },
-        { x: 565, y: CHAO_Y - 71, largura: 38, altura: 46, vivo: true },
-        { x: 650, y: CHAO_Y - 71, largura: 38, altura: 46, vivo: true }
+        { tipo: "soldado", x: 265, y: CHAO_Y - 58, minX: 225, maxX: 315, vida: 1, maxVida: 1 },
+        { tipo: "escudeiro", x: 395, y: CHAO_Y - 36, minX: 365, maxX: 425, vida: 2, maxVida: 2 }
       ]
     },
     5: {
       plataformas: [
-        { x: 0, y: CHAO_Y, largura: 170, altura: 70 },
-        { x: 245, y: CHAO_Y - 30, largura: 155, altura: 100 },
-        { x: 470, y: CHAO_Y - 10, largura: 140, altura: 80 },
-        { x: 665, y: CHAO_Y, largura: 135, altura: 70 }
+        { x: 0, y: CHAO_Y, w: 90, h: 36 },
+        { x: 120, y: CHAO_Y - 16, w: 115, h: 52 },
+        { x: 265, y: CHAO_Y - 32, w: 65, h: 12, movelX: 30, vel: 0.9 },
+        { x: 380, y: CHAO_Y - 20, w: 100, h: 56 }
       ],
       guerreiros: [
-        { x: 330, y: CHAO_Y - 76, largura: 38, altura: 46, vivo: true },
-        { x: 545, y: CHAO_Y - 56, largura: 38, altura: 46, vivo: true }
+        { tipo: "escudeiro", x: 165, y: CHAO_Y - 40, minX: 125, maxX: 215, vida: 2, maxVida: 2 },
+        { tipo: "arqueiro", x: 405, y: CHAO_Y - 44, minX: 385, maxX: 425, vida: 2, maxVida: 2 }
       ]
     },
     6: {
       plataformas: [
-        { x: 0, y: CHAO_Y, largura: 165, altura: 70 },
-        { x: 240, y: CHAO_Y - 20, largura: 170, altura: 90 },
-        { x: 485, y: CHAO_Y - 35, largura: 315, altura: 105 }
+        { x: 0, y: CHAO_Y, w: 85, h: 36 },
+        { x: 115, y: CHAO_Y - 20, w: 110, h: 56 },
+        { x: 255, y: CHAO_Y - 36, w: 105, h: 72 },
+        { x: 385, y: CHAO_Y - 16, w: 95, h: 52 }
       ],
       guerreiros: [
-        { x: 335, y: CHAO_Y - 66, largura: 38, altura: 46, vivo: true },
-        { x: 545, y: CHAO_Y - 81, largura: 38, altura: 46, vivo: true },
-        { x: 635, y: CHAO_Y - 81, largura: 38, altura: 46, vivo: true }
+        { tipo: "escudeiro", x: 160, y: CHAO_Y - 44, minX: 120, maxX: 205, vida: 2, maxVida: 2 },
+        { tipo: "arqueiro", x: 300, y: CHAO_Y - 60, minX: 265, maxX: 340, vida: 2, maxVida: 2 },
+        { tipo: "escudeiro", x: 405, y: CHAO_Y - 40, minX: 388, maxX: 425, vida: 3, maxVida: 3 }
       ]
     }
   };
 
-  const dadosFase = mapas[numeroFase];
-  plataformas = dadosFase.plataformas.map(p => ({ ...p }));
-  guerreiros = dadosFase.guerreiros.map(g => ({ ...g }));
+  const dado = mapas[num];
+  plataformas = dado.plataformas.map(p => ({
+    ...p,
+    baseX: p.x,
+    baseY: p.y,
+    dir: 1
+  }));
 
-  // Posiciona o baú de tesouro no final da última plataforma
-  const ultimaPlat = plataformas[plataformas.length - 1];
+  guerreiros = dado.guerreiros.map(g => ({
+    ...g,
+    w: 20,
+    h: 24,
+    dir: -1,
+    vivo: true,
+    recargaTiro: 70 + Math.floor(Math.random() * 40),
+    piscarDano: 0
+  }));
+
+  const ultima = plataformas[plataformas.length - 1];
   bauTesouro = {
-    x: ultimaPlat.x + ultimaPlat.largura - 56,
-    y: ultimaPlat.y - 40,
-    largura: 42,
-    altura: 40
+    x: ultima.x + ultima.w - 28,
+    y: ultima.y - 20,
+    largura: 22,
+    altura: 20
   };
 
   atualizarPainel();
 }
 
 // ============================================================
-// AÇÕES DO JOGADOR (PULAR E ATACAR NO RITMO)
+// AÇÕES DE COMBATE E MOVIMENTO
 // ============================================================
 function acionarPulo() {
   if (estadoJogo !== "jogando") return;
   if (dragao.noChao) {
-    dragao.velocidadeY = FORCA_PULO;
+    dragao.vy = FORCA_PULO;
     dragao.noChao = false;
     somPulo();
+    criarParticulas(dragao.x + 10, dragao.y + 26, "#a855f7", 6);
+  }
+}
+
+function acionarDash() {
+  if (estadoJogo !== "jogando") return;
+  if (dragao.dashRecarga <= 0 && dragao.dashTempo <= 0) {
+    dragao.dashTempo = 12;
+    dragao.dashRecarga = 42;
+    dragao.invulneravel = Math.max(dragao.invulneravel, 15);
+    somDash();
+    criarParticulas(dragao.x + 10, dragao.y + 14, "#38bdf8", 12);
   }
 }
 
 function acionarAtaqueRitmo() {
   if (estadoJogo !== "jogando") return;
 
-  const larguraZona = Math.max(16, 26 - faseAtual * 1.4);
+  const larguraZona = Math.max(18, 28 - faseAtual * 1.4);
   const inicioZona = 50 - larguraZona / 2;
   const fimZona = 50 + larguraZona / 2;
 
-  // Verifica se o marcador está dentro da zona verde
   if (posicaoRitmo >= inicioZona && posicaoRitmo <= fimZona) {
     errosRitmoSeguidos = 0;
-    dragao.atacandoTempo = 18;
-    somFogoAcerto();
+    combo++;
+    dragao.atacandoTempo = 14;
+    somFogo();
 
-    // Dispara uma bola de fogo punk
-    bolasDeFogo.push({
-      x: dragao.x + dragao.largura,
-      y: dragao.y + 14,
-      largura: 24,
-      altura: 16,
-      velocidade: 8.5
+    // Ataque crítico se acertar bem no centro da zona verde!
+    const critico = Math.abs(posicaoRitmo - 50) <= 5 || combo >= 3;
+    const dano = critico ? 2 : 1;
+
+    projeteisDragao.push({
+      x: dragao.direcao === 1 ? dragao.x + dragao.largura : dragao.x - 14,
+      y: dragao.y + 8,
+      w: critico ? 18 : 12,
+      h: critico ? 10 : 7,
+      vx: dragao.direcao * (critico ? 5.6 : 4.5),
+      dano,
+      critico
     });
 
-    pontos += 50;
-    mostrarFeedback("🔥 RIFF PERFEITO! Rajada de fogo disparada no ritmo!", "acerto");
+    pontos += critico ? 80 : 40;
+    criarParticulas(dragao.x + 14, dragao.y + 12, critico ? "#facc15" : "#f97316", 8);
+    mostrarFeedback(
+      critico ? `🔥 SOLO CRÍTICO (${combo}x)! Rajada dupla de fogo!` : `🎸 No ritmo! (${combo}x Combo)`,
+      "acerto"
+    );
   } else {
+    combo = 0;
     errosRitmoSeguidos++;
     somErro();
-
     if (errosRitmoSeguidos >= 3) {
       errosRitmoSeguidos = 0;
       perderVida("🎸 Errou o ritmo 3 vezes seguidas! Perdeu 1 coração.");
     } else {
-      mostrarFeedback(`⚠️ Fora do tempo! (${errosRitmoSeguidos}/3 erros seguidos)`, "erro");
+      mostrarFeedback(`⚠️ Fora da batida! (${errosRitmoSeguidos}/3 erros seguidos)`, "erro");
     }
   }
   atualizarPainel();
@@ -301,6 +362,8 @@ function acionarAtaqueRitmo() {
 
 function perderVida(motivo) {
   vidas--;
+  combo = 0;
+  tremorTela = prefereMenosAnimacao ? 0 : 10;
   somErro();
   atualizarPainel();
 
@@ -308,18 +371,15 @@ function perderVida(motivo) {
     finalizarJogo(false, motivo + " Seus corações acabaram!");
   } else {
     mostrarFeedback(motivo, "erro");
-    // Reposiciona no início da fase atual
     carregarFase(faseAtual);
   }
 }
 
-// ============================================================
-// CONTROLE DE INÍCIO E FIM DE JOGO
-// ============================================================
 function iniciarJogo() {
   faseAtual = 1;
   vidas = 3;
   pontos = 0;
+  combo = 0;
   errosRitmoSeguidos = 0;
   tempoInicioPartida = Date.now();
   estadoJogo = "jogando";
@@ -332,25 +392,23 @@ function iniciarJogo() {
   notificarAlturaPortal();
 }
 
-function finalizarJogo(venceu, textoExplicacao) {
+function finalizarJogo(venceu, texto) {
   estadoJogo = "fim";
   const tempoTotalMs = Date.now() - tempoInicioPartida;
 
-  // Bônus pelos corações restantes na vitória
   if (venceu) {
-    pontos += vidas * 100;
-    somVitoriaFase();
+    pontos += vidas * 150;
+    somVitoria();
     tituloFim.textContent = "🏆 TESOURO RECUPERADO! 🤘";
   } else {
     tituloFim.textContent = "💀 FIM DO SHOW!";
   }
 
-  mensagemFim.textContent = textoExplicacao;
+  mensagemFim.textContent = texto;
   resumoPontos.textContent = `Pontuação final: ${pontos} / ${PONTOS_MAXIMOS} pts`;
   telaFim.classList.remove("oculto");
   atualizarPainel();
 
-  // Envia resultado final para o portal da escola
   window.parent.postMessage(
     {
       type: "vrgame:finish",
@@ -365,396 +423,307 @@ function finalizarJogo(venceu, textoExplicacao) {
 }
 
 // ============================================================
-// ATUALIZAÇÃO DA FÍSICA E COLISÕES
+// FÍSICA E ATUALIZAÇÃO
 // ============================================================
-function colidem(a, b) {
-  return (
-    a.x < b.x + b.largura &&
-    a.x + a.largura > b.x &&
-    a.y < b.y + b.altura &&
-    a.y + a.altura > b.y
-  );
+function colide(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 function atualizar() {
+  frameContador++;
+  if (tremorTela > 0) tremorTela--;
   if (estadoJogo !== "jogando") return;
 
-  // Move o marcador na barra de ritmo
-  const fatorAnimacao = prefereMenosAnimacao ? 0.75 : 1;
-  posicaoRitmo += direcaoRitmo * velocidadeRitmo * fatorAnimacao;
-  if (posicaoRitmo >= 97) {
-    posicaoRitmo = 97;
-    direcaoRitmo = -1;
-  } else if (posicaoRitmo <= 0) {
-    posicaoRitmo = 0;
-    direcaoRitmo = 1;
-  }
+  // Atualiza barra de ritmo
+  const fatorRitmo = prefereMenosAnimacao ? 0.75 : 1;
+  posicaoRitmo += direcaoRitmo * velocidadeRitmo * fatorRitmo;
+  if (posicaoRitmo >= 97) { posicaoRitmo = 97; direcaoRitmo = -1; }
+  if (posicaoRitmo <= 0) { posicaoRitmo = 0; direcaoRitmo = 1; }
   marcadorRitmo.style.left = posicaoRitmo + "%";
 
-  // Contadores de animação
-  if (dragao.invulneravelTempo > 0) dragao.invulneravelTempo--;
+  // Atualiza plataformas móveis
+  for (const p of plataformas) {
+    p.deltaX = 0;
+    p.deltaY = 0;
+    if (p.movelX) {
+      const antX = p.x;
+      p.x += p.dir * p.vel;
+      if (p.x > p.baseX + p.movelX || p.x < p.baseX - p.movelX) p.dir *= -1;
+      p.deltaX = p.x - antX;
+    }
+    if (p.movelY) {
+      const antY = p.y;
+      p.y += p.dir * p.vel;
+      if (p.y > p.baseY + p.movelY || p.y < p.baseY - p.movelY) p.dir *= -1;
+      p.deltaY = p.y - antY;
+    }
+  }
+
+  // Contadores do dragão
+  if (dragao.invulneravel > 0) dragao.invulneravel--;
+  if (dragao.dashRecarga > 0) dragao.dashRecarga--;
   if (dragao.atacandoTempo > 0) dragao.atacandoTempo--;
 
-  // Movimento horizontal automático do dragão
-  dragao.x += dragao.velocidadeX;
+  // Movimento horizontal no PC / Celular
+  if (dragao.dashTempo > 0) {
+    dragao.dashTempo--;
+    dragao.vx = dragao.direcao * 5.2;
+    dragao.vy = 0;
+  } else {
+    if (teclas.esquerda) {
+      dragao.vx = -2.3;
+      dragao.direcao = -1;
+    } else if (teclas.direita) {
+      dragao.vx = 2.3;
+      dragao.direcao = 1;
+    } else {
+      dragao.vx = 0;
+    }
+    dragao.vy += GRAVIDADE;
+  }
 
-  // Gravidade e queda
-  dragao.velocidadeY += GRAVIDADE;
-  dragao.y += dragao.velocidadeY;
+  dragao.x += dragao.vx;
+  dragao.y += dragao.vy;
+
+  // Limites laterais da tela
+  if (dragao.x < 0) dragao.x = 0;
+  if (dragao.x + dragao.largura > LARGURA_BASE) dragao.x = LARGURA_BASE - dragao.largura;
+
   dragao.noChao = false;
 
-  // Verifica apoio nas plataformas de pedra
-  for (const plat of plataformas) {
-    const pesAntes = dragao.y + dragao.altura - dragao.velocidadeY;
+  // Colisão com plataformas
+  for (const p of plataformas) {
+    const pesAntes = dragao.y + dragao.altura - dragao.vy;
     if (
-      dragao.x + dragao.largura - 8 > plat.x &&
-      dragao.x + 8 < plat.x + plat.largura &&
-      pesAntes <= plat.y + 8 &&
-      dragao.y + dragao.altura >= plat.y
+      dragao.x + dragao.largura - 4 > p.x &&
+      dragao.x + 4 < p.x + p.w &&
+      pesAntes <= p.y + 6 &&
+      dragao.y + dragao.altura >= p.y
     ) {
-      dragao.y = plat.y - dragao.altura;
-      dragao.velocidadeY = 0;
+      dragao.y = p.y - dragao.altura;
+      dragao.vy = 0;
       dragao.noChao = true;
+      dragao.x += p.deltaX || 0;
     }
   }
 
   // Caiu na lava
-  if (dragao.y > canvas.height - 25) {
-    perderVida("🌋 Caiu na lava! Pule antes do fim da plataforma.");
+  if (dragao.y > ALTURA_BASE - 16) {
+    perderVida("🌋 Caiu na lava! Pule para a próxima plataforma.");
     return;
   }
 
-  // Atualiza bolas de fogo
-  for (let i = bolasDeFogo.length - 1; i >= 0; i--) {
-    const fogo = bolasDeFogo[i];
-    fogo.x += fogo.velocidade;
+  // Atualiza projéteis de fogo do dragão
+  for (let i = projeteisDragao.length - 1; i >= 0; i--) {
+    const f = projeteisDragao[i];
+    f.x += f.vx;
+    let atingiu = false;
 
-    // Verifica acerto nos guerreiros
-    for (const guerreiro of guerreiros) {
-      if (guerreiro.vivo && colidem(fogo, guerreiro)) {
-        guerreiro.vivo = false;
-        bolasDeFogo.splice(i, 1);
-        pontos += 100;
+    for (const g of guerreiros) {
+      if (!g.vivo) continue;
+      if (colide(f, g)) {
+        atingiu = true;
+        g.vida -= f.dano;
+        g.piscarDano = 8;
+        somHitInimigo();
+        criarParticulas(g.x + 10, g.y + 12, "#f97316", 12);
+
+        if (g.vida <= 0) {
+          g.vivo = false;
+          pontos += 120;
+          tremorTela = prefereMenosAnimacao ? 0 : 5;
+          mostrarFeedback("⚔️ Guerreiro derrotado! +120 pts", "acerto");
+        } else {
+          mostrarFeedback("🛡️ Armadura rachada! Acerte mais um fogo no ritmo!", "acerto");
+        }
         atualizarPainel();
-        mostrarFeedback("⚔️ Guerreiro derrotado com solo de fogo! +100 pts", "acerto");
         break;
       }
     }
 
-    if (fogo && fogo.x > canvas.width) {
-      bolasDeFogo.splice(i, 1);
+    if (atingiu || f.x < -20 || f.x > LARGURA_BASE + 20) {
+      projeteisDragao.splice(i, 1);
     }
   }
 
-  // Verifica choque do dragão com guerreiro vivo
-  for (const guerreiro of guerreiros) {
-    if (guerreiro.vivo && colidem(dragao, guerreiro)) {
-      perderVida("🛡️ Bateu em um guerreiro! Ataque no ritmo antes de encostar.");
+  // Atualiza guerreiros (patrulha e disparos de arqueiros)
+  const caixaDragao = { x: dragao.x + 3, y: dragao.y + 3, w: dragao.largura - 6, h: dragao.altura - 4 };
+
+  for (const g of guerreiros) {
+    if (!g.vivo) continue;
+    if (g.piscarDano > 0) g.piscarDano--;
+
+    // Patrulha na plataforma
+    g.x += g.dir * (g.tipo === "escudeiro" ? 0.45 : 0.75);
+    if (g.x <= g.minX) { g.x = g.minX; g.dir = 1; }
+    if (g.x >= g.maxX) { g.x = g.maxX; g.dir = -1; }
+
+    // Arqueiro dispara flechas de energia
+    if (g.tipo === "arqueiro") {
+      g.recargaTiro--;
+      if (g.recargaTiro <= 0) {
+        g.recargaTiro = 115;
+        const dirTiro = dragao.x < g.x ? -1 : 1;
+        projeteisInimigos.push({
+          x: g.x + (dirTiro === 1 ? g.w : -8),
+          y: g.y + 10,
+          w: 8,
+          h: 3,
+          vx: dirTiro * 2.4
+        });
+      }
+    }
+
+    // Colisão corpo a corpo com o dragão (ignora se estiver usando Dash!)
+    if (dragao.invulneravel <= 0 && dragao.dashTempo <= 0 && colide(caixaDragao, g)) {
+      perderVida("🛡️ Encostou no guerreiro! Use o fogo no ritmo ou o Dash (Shift) para escapar.");
       return;
     }
   }
 
-  // Verifica se encostou no baú de tesouro no fim da fase
-  if (colidem(dragao, bauTesouro)) {
-    pontos += 100;
+  // Atualiza flechas dos arqueiros
+  for (let i = projeteisInimigos.length - 1; i >= 0; i--) {
+    const fl = projeteisInimigos[i];
+    fl.x += fl.vx;
+
+    if (dragao.invulneravel <= 0 && dragao.dashTempo <= 0 && colide(caixaDragao, fl)) {
+      projeteisInimigos.splice(i, 1);
+      perderVida("🏹 Atingido por flecha! Pule ou use Dash (Shift) para atravessar.");
+      return;
+    }
+
+    if (fl.x < -10 || fl.x > LARGURA_BASE + 10) {
+      projeteisInimigos.splice(i, 1);
+    }
+  }
+
+  // Atualiza partículas pixeladas
+  for (let i = particulas.length - 1; i >= 0; i--) {
+    const pt = particulas[i];
+    pt.x += pt.vx;
+    pt.y += pt.vy;
+    pt.vy += 0.12;
+    pt.vida--;
+    if (pt.vida <= 0) particulas.splice(i, 1);
+  }
+
+  // Verifica chegada ao baú do tesouro
+  const caixaBau = { x: bauTesouro.x, y: bauTesouro.y, w: bauTesouro.largura, h: bauTesouro.altura };
+  if (colide(caixaDragao, caixaBau)) {
+    pontos += 150;
     if (faseAtual < TOTAL_FASES) {
-      somVitoriaFase();
+      somVitoria();
       faseAtual++;
-      mostrarFeedback(`🎸 Fase ${faseAtual - 1} concluída! Prepare-se para a Fase ${faseAtual}!`, "acerto");
+      mostrarFeedback(`🎸 Fase ${faseAtual - 1} vencida! Avançando para a Fase ${faseAtual}!`, "acerto");
       carregarFase(faseAtual);
     } else {
       finalizarJogo(
         true,
-        "Você derrotou os guerreiros do castelo vulcânico e recuperou o tesouro do MetalDragon!"
+        "Você derrotou todos os guerreiros da fortaleza vulcânica e recuperou o tesouro do MetalDragon!"
       );
     }
   }
-
-  // Gera raio decorativo ocasional no céu (se animações estiverem ativas)
-  if (!prefereMenosAnimacao && Math.random() < 0.015) {
-    raiosFundo.push({ x: Math.random() * canvas.width, vida: 8 });
-  }
-  for (let i = raiosFundo.length - 1; i >= 0; i--) {
-    raiosFundo[i].vida--;
-    if (raiosFundo[i].vida <= 0) raiosFundo.splice(i, 1);
-  }
 }
 
 // ============================================================
-// DESENHO EM ESTILO PIXEL ART PUNK / METAL VULCÂNICO
+// RENDERIZAÇÃO PIXEL ART VERDADEIRA (GRADE 480x220 AMPLIADA 2X)
 // ============================================================
-function desenharCenario() {
-  // Céu roxo sombrio metal
-  ctx.fillStyle = "#160924";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+function px(x, y, w, h, cor) {
+  ctx.fillStyle = cor;
+  ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
 
-  // Raios punk no fundo
-  ctx.strokeStyle = "#f472b6";
-  ctx.lineWidth = 3;
-  for (const raio of raiosFundo) {
+function desenharCenario() {
+  // Céu noturno roxo-metal com degradê em faixas pixel art
+  px(0, 0, LARGURA_BASE, 70, "#12061f");
+  px(0, 70, LARGURA_BASE, 65, "#1d0b30");
+  px(0, 135, LARGURA_BASE, 85, "#2b1042");
+
+  // Lua punk gigante no fundo
+  px(370, 22, 34, 34, "#ec4899");
+  px(373, 25, 28, 28, "#f472b6");
+  px(382, 30, 6, 6, "#db2777");
+  px(390, 42, 5, 5, "#db2777");
+
+  // Montanhas vulcânicas e torres pixeladas
+  const picos = [
+    [0, 184, 70, 75, 145, 184],
+    [120, 184, 210, 58, 305, 184],
+    [275, 184, 360, 72, 460, 184]
+  ];
+  ctx.fillStyle = "#190929";
+  for (const [x1, y1, x2, y2, x3, y3] of picos) {
     ctx.beginPath();
-    ctx.moveTo(raio.x, 0);
-    ctx.lineTo(raio.x - 18, 70);
-    ctx.lineTo(raio.x + 12, 120);
-    ctx.lineTo(raio.x - 10, 190);
-    ctx.stroke();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineTo(x3, y3);
+    ctx.fill();
   }
 
-  // Silhueta de montanhas vulcânicas e torres medievais
-  ctx.fillStyle = "#26123b";
-  ctx.beginPath();
-  ctx.moveTo(0, 290);
-  ctx.lineTo(130, 120);
-  ctx.lineTo(270, 290);
-  ctx.lineTo(430, 95);
-  ctx.lineTo(600, 290);
-  ctx.lineTo(730, 130);
-  ctx.lineTo(800, 290);
-  ctx.fill();
+  // Caixas de som gigantes (amplificadores de show)
+  desenharAmplificador(54, 136);
+  desenharAmplificador(315, 136);
 
-  // Caixas de som gigantes (amplificadores Marshall estilo pixel art)
-  desenharAmplificador(140, 210);
-  desenharAmplificador(590, 210);
-
-  // Rio de lava brilhante na base
-  ctx.fillStyle = "#dc2626";
-  ctx.fillRect(0, canvas.height - 28, canvas.width, 28);
-  ctx.fillStyle = "#f97316";
-  ctx.fillRect(0, canvas.height - 28, canvas.width, 8);
+  // Rio de lava animada na base
+  const onda = Math.floor(frameContador / 10) % 2;
+  px(0, ALTURA_BASE - 16, LARGURA_BASE, 16, "#b91c1c");
+  px(0, ALTURA_BASE - 16, LARGURA_BASE, 4, "#f97316");
+  for (let lx = onda * 12; lx < LARGURA_BASE; lx += 24) {
+    px(lx, ALTURA_BASE - 15, 10, 2, "#facc15");
+  }
 }
 
 function desenharAmplificador(x, y) {
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(x, y, 44, 70);
-  ctx.strokeStyle = "#a855f7";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, 44, 70);
-
-  // Alto-falantes circulares
-  ctx.fillStyle = "#334155";
-  ctx.beginPath();
-  ctx.arc(x + 22, y + 20, 11, 0, Math.PI * 2);
-  ctx.arc(x + 22, y + 50, 11, 0, Math.PI * 2);
-  ctx.fill();
+  px(x, y, 24, 48, "#09090b");
+  px(x + 1, y + 1, 22, 46, "#18181b");
+  px(x, y, 24, 2, "#a855f7");
+  // Alto-falantes
+  px(x + 5, y + 7, 14, 14, "#3f3f46");
+  px(x + 8, y + 10, 8, 8, "#09090b");
+  px(x + 5, y + 26, 14, 14, "#3f3f46");
+  px(x + 8, y + 29, 8, 8, "#09090b");
 }
 
 function desenharPlataformas() {
-  for (const plat of plataformas) {
-    // Pedra medieval escura
-    ctx.fillStyle = "#3f3f46";
-    ctx.fillRect(plat.x, plat.y, plat.largura, plat.altura);
+  for (const p of plataformas) {
+    // Base de pedra escura
+    px(p.x, p.y, p.w, p.h, "#27272a");
+    // Borda superior neon punk
+    px(p.x, p.y, p.w, 3, "#ec4899");
+    px(p.x, p.y + 3, p.w, 2, "#831843");
 
-    // Borda superior punk neon
-    ctx.fillStyle = "#db2777";
-    ctx.fillRect(plat.x, plat.y, plat.largura, 6);
-
-    // Detalhes de tijolos em pixel art
-    ctx.fillStyle = "#27272a";
-    for (let tx = plat.x + 8; tx < plat.x + plat.largura - 16; tx += 28) {
-      ctx.fillRect(tx, plat.y + 14, 18, 10);
-      ctx.fillRect(tx + 8, plat.y + 30, 18, 10);
+    // Tijolos detalhados em pixel art
+    for (let tx = p.x + 4; tx < p.x + p.w - 10; tx += 14) {
+      px(tx, p.y + 8, 10, 5, "#3f3f46");
+      if (p.h > 20) {
+        px(tx + 4, p.y + 16, 10, 5, "#18181b");
+      }
     }
   }
 }
 
 function desenharDragao() {
-  // Efeito de piscar quando está invulnerável
-  if (dragao.invulneravelTempo > 0 && Math.floor(dragao.invulneravelTempo / 4) % 2 === 0) {
-    return;
+  if (dragao.invulneravel > 0 && Math.floor(dragao.invulneravel / 3) % 2 === 0) return;
+
+  ctx.save();
+  const cx = Math.round(dragao.x + dragao.largura / 2);
+  const cy = Math.round(dragao.y);
+  ctx.translate(cx, cy);
+  ctx.scale(dragao.direcao, 1);
+
+  // Rastro azul durante o Dash
+  if (dragao.dashTempo > 0) {
+    px(-18, 4, 12, 18, "rgba(56, 189, 248, 0.5)");
   }
 
-  const x = Math.round(dragao.x);
-  const y = Math.round(dragao.y);
+  // Cauda com ponta elétrica
+  px(-15, 15, 6, 4, "#16a34a");
+  px(-18, 12, 4, 4, "#facc15");
 
-  // Cauda com ponta de raio
-  ctx.fillStyle = "#16a34a";
-  ctx.fillRect(x - 10, y + 26, 12, 10);
-  ctx.fillStyle = "#facc15";
-  ctx.fillRect(x - 14, y + 22, 6, 8);
+  // Pernas animadas ao andar
+  const passo = dragao.vx !== 0 && dragao.noChao ? (Math.floor(frameContador / 5) % 2 === 0 ? -1 : 1) : 0;
+  px(-6, 21 + passo, 4, 5, "#15803d");
+  px(2, 21 - passo, 4, 5, "#15803d");
 
-  // Corpo do dragão
-  ctx.fillStyle = "#22c55e";
-  ctx.fillRect(x + 4, y + 14, 28, 26);
-
-  // Jaqueta punk preta com tachinhas
-  ctx.fillStyle = "#09090b";
-  ctx.fillRect(x + 6, y + 18, 22, 16);
-  ctx.fillStyle = "#e2e8f0";
-  ctx.fillRect(x + 9, y + 20, 3, 3);
-  ctx.fillRect(x + 17, y + 20, 3, 3);
-
-  // Cabeça e focinho
-  ctx.fillStyle = "#22c55e";
-  ctx.fillRect(x + 18, y + 2, 24, 18);
-
-  // Moicano punk rosa/vermelho
-  ctx.fillStyle = "#ec4899";
-  ctx.fillRect(x + 14, y - 6, 6, 10);
-  ctx.fillRect(x + 21, y - 8, 6, 10);
-  ctx.fillRect(x + 28, y - 5, 6, 8);
-
-  // Óculos escuros rockstar
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(x + 28, y + 6, 12, 5);
-  ctx.fillStyle = "#f97316";
-  ctx.fillRect(x + 30, y + 7, 4, 3);
-
-  // Guitarra elétrica estilo Flying V nas patas
-  ctx.fillStyle = "#ef4444";
-  ctx.fillRect(x + 18, y + 26, 20, 8);
-  ctx.fillStyle = "#f8fafc";
-  ctx.fillRect(x + 34, y + 24, 14, 4);
-
-  // Pernas
-  ctx.fillStyle = "#15803d";
-  ctx.fillRect(x + 8, y + 40, 8, 8);
-  ctx.fillRect(x + 22, y + 40, 8, 8);
-}
-
-function desenharGuerreiros() {
-  for (const g of guerreiros) {
-    if (!g.vivo) continue;
-    const x = Math.round(g.x);
-    const y = Math.round(g.y);
-
-    // Armadura metálica
-    ctx.fillStyle = "#94a3b8";
-    ctx.fillRect(x + 8, y + 14, 22, 24);
-
-    // Capacete medieval com viseira
-    ctx.fillStyle = "#cbd5e1";
-    ctx.fillRect(x + 10, y, 18, 14);
-    ctx.fillStyle = "#0f172a";
-    ctx.fillRect(x + 10, y + 5, 12, 4);
-
-    // Pluma vermelha no elmo
-    ctx.fillStyle = "#dc2626";
-    ctx.fillRect(x + 16, y - 6, 8, 6);
-
-    // Escudo e espada
-    ctx.fillStyle = "#475569";
-    ctx.fillRect(x + 2, y + 16, 8, 18);
-    ctx.fillStyle = "#f8fafc";
-    ctx.fillRect(x + 4, y + 4, 4, 16);
-
-    // Botas
-    ctx.fillStyle = "#334155";
-    ctx.fillRect(x + 9, y + 38, 7, 8);
-    ctx.fillRect(x + 22, y + 38, 7, 8);
-  }
-}
-
-function desenharBolasDeFogo() {
-  for (const f of bolasDeFogo) {
-    ctx.fillStyle = "#f97316";
-    ctx.fillRect(f.x, f.y, f.largura, f.altura);
-    ctx.fillStyle = "#facc15";
-    ctx.fillRect(f.x + 6, f.y + 4, f.largura - 10, f.altura - 8);
-  }
-}
-
-function desenharBau() {
-  const x = bauTesouro.x;
-  const y = bauTesouro.y;
-
-  // Caixa de madeira reforçada
-  ctx.fillStyle = "#92400e";
-  ctx.fillRect(x, y + 10, bauTesouro.largura, 30);
-
-  // Tampa arredondada
-  ctx.fillStyle = "#b45309";
-  ctx.fillRect(x + 2, y, bauTesouro.largura - 4, 12);
-
-  // Detalhes em ouro e brilho
-  ctx.fillStyle = "#facc15";
-  ctx.fillRect(x, y + 10, bauTesouro.largura, 4);
-  ctx.fillRect(x + 17, y + 8, 8, 10);
-}
-
-function desenhar() {
-  desenharCenario();
-  desenharPlataformas();
-  desenharBau();
-  desenharGuerreiros();
-  desenharBolasDeFogo();
-  desenharDragao();
-}
-
-// Loop principal do jogo
-function loopPrincipal(timestamp) {
-  if (!ultimoQuadro) ultimoQuadro = timestamp;
-  ultimoQuadro = timestamp;
-
-  atualizar();
-  desenhar();
-  requestAnimationFrame(loopPrincipal);
-}
-
-// ============================================================
-// EVENTOS DE TECLADO, TOQUE E PORTAL DA ESCOLA
-// ============================================================
-window.addEventListener("keydown", (evento) => {
-  if (["ArrowUp", "Space", "KeyW"].includes(evento.code)) {
-    evento.preventDefault();
-    acionarPulo();
-  }
-  if (["Enter", "KeyF", "KeyJ"].includes(evento.code)) {
-    evento.preventDefault();
-    acionarAtaqueRitmo();
-  }
-});
-
-btnPular.addEventListener("click", acionarPulo);
-btnAtacar.addEventListener("click", acionarAtaqueRitmo);
-botaoComecar.addEventListener("click", iniciarJogo);
-botaoReiniciar.addEventListener("click", iniciarJogo);
-
-// Alternância manual de tema claro/escuro
-botaoTema.addEventListener("click", () => {
-  document.body.classList.toggle("tema-claro");
-  notificarAlturaPortal();
-});
-
-// Integração obrigatória com o portal (vrgame)
-function notificarAlturaPortal() {
-  window.parent.postMessage(
-    {
-      type: "vrgame:resize",
-      height: document.documentElement.scrollHeight
-    },
-    "*"
-  );
-}
-
-window.addEventListener("message", (evento) => {
-  const dados = evento.data;
-  if (!dados || typeof dados !== "object") return;
-
-  if (dados.type === "vrgame:theme") {
-    if (dados.theme === "light") {
-      document.body.classList.add("tema-claro");
-    } else {
-      document.body.classList.remove("tema-claro");
-    }
-    notificarAlturaPortal();
-  }
-
-  if (dados.type === "vrgame:fullscreen") {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-    }
-  }
-});
-
-window.addEventListener("resize", notificarAlturaPortal);
-
-window.addEventListener("load", () => {
-  desenhar();
-  window.parent.postMessage({ type: "vrgame:ready" }, "*");
-  notificarAlturaPortal();
-});
-
-// Inicia o ciclo visual
-requestAnimationFrame(loopPrincipal);
+  // Corpo verde + Jaqueta punk preta com tachinhas
+  px(-8

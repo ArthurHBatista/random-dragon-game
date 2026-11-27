@@ -1,27 +1,25 @@
-/* Variáveis de cores - Tema Escuro Punk/Metal (Padrão) */
 :root {
-  --bg-pagina: #120b18;
-  --bg-painel: #1e1329;
-  --borda-metal: #6d28d9;
+  --bg-pagina: #0d0714;
+  --bg-painel: #180e24;
+  --borda-metal: #7c3aed;
   --texto-principal: #f8fafc;
   --texto-secundario: #cbd5e1;
   --destaque-fogo: #f97316;
   --destaque-punk: #ec4899;
   --zona-certa: #22c55e;
-  --sombra-caixa: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --sombra-caixa: 0 12px 32px rgba(0, 0, 0, 0.75);
 }
 
-/* Tema Claro */
 body.tema-claro {
-  --bg-pagina: #f1f5f9;
+  --bg-pagina: #e2e8f0;
   --bg-painel: #ffffff;
-  --borda-metal: #7c3aed;
+  --borda-metal: #6d28d9;
   --texto-principal: #0f172a;
   --texto-secundario: #334155;
   --destaque-fogo: #ea580c;
   --destaque-punk: #db2777;
   --zona-certa: #16a34a;
-  --sombra-caixa: 0 6px 18px rgba(15, 23, 42, 0.15);
+  --sombra-caixa: 0 8px 24px rgba(15, 23, 42, 0.15);
 }
 
 * {
@@ -40,15 +38,14 @@ body {
   align-items: center;
   min-height: 100vh;
   padding: 12px;
-  transition: background-color 0.2s, color 0.2s;
 }
 
 .container-jogo {
   width: 100%;
-  max-width: 820px;
+  max-width: 980px;
   background-color: var(--bg-painel);
   border: 3px solid var(--borda-metal);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 12px;
   box-shadow: var(--sombra-caixa);
   display: flex;
@@ -56,7 +53,6 @@ body {
   gap: 10px;
 }
 
-/* Barra superior */
 .barra-topo {
   display: flex;
   justify-content: space-between;
@@ -71,7 +67,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 75px;
+  min-width: 72px;
 }
 
 .rotulo {
@@ -90,7 +86,7 @@ body {
 .botao-pequeno {
   min-height: 44px;
   min-width: 44px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   background-color: transparent;
   color: var(--texto-principal);
   border: 2px solid var(--borda-metal);
@@ -105,14 +101,14 @@ body {
   color: #ffffff;
 }
 
-/* Palco / Canvas */
+/* Palco Pixel Art com borda nítida */
 .palco-wrapper {
   position: relative;
   width: 100%;
-  border: 3px solid #3b0764;
-  border-radius: 8px;
+  border: 4px solid #3b0764;
+  border-radius: 6px;
   overflow: hidden;
-  background-color: #190d24;
+  background-color: #12081c;
 }
 
 canvas {
@@ -120,18 +116,18 @@ canvas {
   width: 100%;
   height: auto;
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
-/* Feedback visual curto de acerto ou erro */
 .feedback-banner {
   position: absolute;
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 6px;
   font-weight: bold;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   text-align: center;
   z-index: 5;
   border: 2px solid #ffffff;
@@ -148,11 +144,10 @@ canvas {
   color: #ffffff;
 }
 
-/* Telas de Início e Fim */
 .sobreposicao {
   position: absolute;
   inset: 0;
-  background: rgba(15, 7, 24, 0.92);
+  background: rgba(12, 5, 20, 0.93);
   color: #f8fafc;
   display: flex;
   flex-direction: column;
@@ -166,15 +161,15 @@ canvas {
 
 .sobreposicao h1,
 .sobreposicao h2 {
-  font-size: 1.7rem;
+  font-size: 1.85rem;
   color: #f97316;
-  text-shadow: 2px 2px 0 #db2777;
+  text-shadow: 3px 3px 0 #db2777;
 }
 
 .subtitulo {
-  max-width: 560px;
+  max-width: 620px;
   font-size: 0.95rem;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .regras-rapidas {
@@ -182,26 +177,30 @@ canvas {
   font-size: 0.88rem;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   color: #e2e8f0;
+  background: rgba(124, 58, 237, 0.18);
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #7c3aed;
 }
 
 .destaque-pontos {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
   font-weight: bold;
   color: #22c55e;
 }
 
 .botao-principal {
   min-height: 48px;
-  padding: 12px 24px;
+  padding: 12px 26px;
   font-size: 1.05rem;
   font-family: inherit;
   font-weight: bold;
   color: #ffffff;
   background: linear-gradient(90deg, #db2777, #f97316);
   border: 2px solid #ffffff;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
@@ -213,7 +212,6 @@ canvas {
   display: none !important;
 }
 
-/* Medidor de ritmo */
 .painel-ritmo {
   display: flex;
   flex-direction: column;
@@ -254,30 +252,44 @@ canvas {
   width: 14px;
   background-color: #f97316;
   border: 2px solid #ffffff;
-  border-radius: 4px;
+  border-radius: 3px;
   left: 0%;
 }
 
-/* Controles inferiores grandes (>= 44px) */
 .controles-touch {
   display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr 1.2fr;
+  gap: 8px;
+}
+
+.grupo-direcao {
+  display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 6px;
 }
 
 .botao-acao {
-  min-height: 54px;
+  min-height: 50px;
+  min-width: 44px;
   font-family: inherit;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: bold;
   color: #ffffff;
   border: 2px solid #ffffff;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
+}
+
+.botao-dir {
+  background-color: #334155;
 }
 
 .botao-pulo {
   background-color: #6d28d9;
+}
+
+.botao-dash {
+  background-color: #0284c7;
 }
 
 .botao-fogo {
@@ -285,10 +297,15 @@ canvas {
 }
 
 .botao-acao:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
-/* Respeita a preferência do sistema por menos animação */
+@media (max-width: 640px) {
+  .controles-touch {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

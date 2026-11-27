@@ -19,6 +19,10 @@
         <span id="fase-texto" class="valor">1 / 6</span>
       </div>
       <div class="info-bloco">
+        <span class="rotulo">COMBO</span>
+        <span id="combo-texto" class="valor">0x</span>
+      </div>
+      <div class="info-bloco">
         <span class="rotulo">PONTOS</span>
         <span id="pontos-texto" class="valor">0</span>
       </div>
@@ -27,30 +31,30 @@
       </button>
     </header>
 
-    <!-- Área principal onde o jogo em pixel art acontece -->
+    <!-- Palco Pixel Art em Alta Definição -->
     <section class="palco-wrapper">
-      <canvas id="tela-jogo" width="800" height="360" aria-label="Tela do jogo MetalDragon"></canvas>
+      <canvas id="tela-jogo" width="960" height="440" aria-label="Tela do jogo MetalDragon"></canvas>
 
-      <!-- Mensagem rápida de acerto, erro ou aviso -->
       <div id="feedback-banner" class="feedback-banner oculto" role="status" aria-live="polite"></div>
 
-      <!-- Tela inicial sobreposta -->
+      <!-- Tela inicial -->
       <div id="tela-inicio" class="sobreposicao">
         <h1>🐉 METAL DRAGON 🎸</h1>
         <p class="subtitulo">
-          Pule os buracos na lava e aperte <strong>ATACAR</strong> quando a palheta passar na zona verde do ritmo para soltar fogo nos guerreiros!
+          Controle o dragão roqueiro pelas plataformas vulcânicas, combine ataques no ritmo da guitarra para soltar rajadas de fogo e recupere o tesouro!
         </p>
         <ul class="regras-rapidas">
+          <li>⬅️➡️ <strong>MOVER NO PC:</strong> Setas Esquerda/Direita ou teclas A / D</li>
           <li>⬆️ <strong>PULAR:</strong> Seta para cima, W ou Espaço</li>
-          <li>🔥 <strong>ATACAR NO RITMO:</strong> Tecla Enter, F ou botão na tela</li>
-          <li>⚠️ 3 erros seguidos no ritmo tiram 1 coração</li>
+          <li>🔥 <strong>ATAQUE NO RITMO:</strong> Enter, F ou J (acerte na zona verde!)</li>
+          <li>⚡ <strong>ESQUIVA / DASH:</strong> Shift ou K (atravessa ataques e ganha impulso)</li>
         </ul>
         <button id="botao-comecar" class="botao-principal" type="button">
           🤘 COMEÇAR SHOW
         </button>
       </div>
 
-      <!-- Tela final (Vitória ou Game Over) -->
+      <!-- Tela final -->
       <div id="tela-fim" class="sobreposicao oculto">
         <h2 id="titulo-fim">FIM DE JOGO</h2>
         <p id="mensagem-fim" class="subtitulo"></p>
@@ -61,10 +65,10 @@
       </div>
     </section>
 
-    <!-- Barra de ritmo musical para o ataque de fogo -->
+    <!-- Barra de ritmo musical -->
     <section class="painel-ritmo" aria-label="Medidor de ritmo do ataque">
       <div class="ritmo-topo">
-        <span>🎸 BATIDA DO ROCK (Ataque na zona brilhante!)</span>
+        <span>🎸 BATIDA DO ROCK (Acerte na zona verde para ataque crítico!)</span>
         <span id="erros-ritmo-texto">Erros seguidos: 0/3</span>
       </div>
       <div class="trilha-ritmo">
@@ -73,14 +77,15 @@
       </div>
     </section>
 
-    <!-- Controles grandes para celular e computador (mínimo 44px) -->
+    <!-- Controles na tela (funcionam no celular e clicando no PC) -->
     <footer class="controles-touch">
-      <button id="btn-pular" class="botao-acao botao-pulo" type="button">
-        ⬆️ PULAR
-      </button>
-      <button id="btn-atacar" class="botao-acao botao-fogo" type="button">
-        🔥 ATACAR NO RITMO
-      </button>
+      <div class="grupo-direcao">
+        <button id="btn-esq" class="botao-acao botao-dir" type="button" aria-label="Andar para esquerda">⬅️</button>
+        <button id="btn-dir" class="botao-acao botao-dir" type="button" aria-label="Andar para direita">➡️</button>
+      </div>
+      <button id="btn-pular" class="botao-acao botao-pulo" type="button">⬆️ PULAR</button>
+      <button id="btn-dash" class="botao-acao botao-dash" type="button">⚡ DASH</button>
+      <button id="btn-atacar" class="botao-acao botao-fogo" type="button">🔥 ATACAR</button>
     </footer>
   </main>
 
