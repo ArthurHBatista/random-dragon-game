@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MetalDragon</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="container-jogo">
+    <!-- Cabeçalho com status do jogador -->
+    <header class="barra-topo">
+      <div class="info-bloco">
+        <span class="rotulo">VIDAS</span>
+        <span id="vidas-texto" class="valor" aria-live="polite">❤️❤️❤️</span>
+      </div>
+      <div class="info-bloco">
+        <span class="rotulo">FASE</span>
+        <span id="fase-texto" class="valor">1 / 6</span>
+      </div>
+      <div class="info-bloco">
+        <span class="rotulo">PONTOS</span>
+        <span id="pontos-texto" class="valor">0</span>
+      </div>
+      <button id="botao-tema" class="botao-pequeno" type="button" aria-label="Alternar tema claro ou escuro">
+        🌓 Tema
+      </button>
+    </header>
+
+    <!-- Área principal onde o jogo em pixel art acontece -->
+    <section class="palco-wrapper">
+      <canvas id="tela-jogo" width="800" height="360" aria-label="Tela do jogo MetalDragon"></canvas>
+
+      <!-- Mensagem rápida de acerto, erro ou aviso -->
+      <div id="feedback-banner" class="feedback-banner oculto" role="status" aria-live="polite"></div>
+
+      <!-- Tela inicial sobreposta -->
+      <div id="tela-inicio" class="sobreposicao">
+        <h1>🐉 METAL DRAGON 🎸</h1>
+        <p class="subtitulo">
+          Pule os buracos na lava e aperte <strong>ATACAR</strong> quando a palheta passar na zona verde do ritmo para soltar fogo nos guerreiros!
+        </p>
+        <ul class="regras-rapidas">
+          <li>⬆️ <strong>PULAR:</strong> Seta para cima, W ou Espaço</li>
+          <li>🔥 <strong>ATACAR NO RITMO:</strong> Tecla Enter, F ou botão na tela</li>
+          <li>⚠️ 3 erros seguidos no ritmo tiram 1 coração</li>
+        </ul>
+        <button id="botao-comecar" class="botao-principal" type="button">
+          🤘 COMEÇAR SHOW
+        </button>
+      </div>
+
+      <!-- Tela final (Vitória ou Game Over) -->
+      <div id="tela-fim" class="sobreposicao oculto">
+        <h2 id="titulo-fim">FIM DE JOGO</h2>
+        <p id="mensagem-fim" class="subtitulo"></p>
+        <p id="resumo-pontos" class="destaque-pontos"></p>
+        <button id="botao-reiniciar" class="botao-principal" type="button">
+          🔄 JOGAR NOVAMENTE
+        </button>
+      </div>
+    </section>
+
+    <!-- Barra de ritmo musical para o ataque de fogo -->
+    <section class="painel-ritmo" aria-label="Medidor de ritmo do ataque">
+      <div class="ritmo-topo">
+        <span>🎸 BATIDA DO ROCK (Ataque na zona brilhante!)</span>
+        <span id="erros-ritmo-texto">Erros seguidos: 0/3</span>
+      </div>
+      <div class="trilha-ritmo">
+        <div id="zona-alvo" class="zona-alvo"></div>
+        <div id="marcador-ritmo" class="marcador-ritmo"></div>
+      </div>
+    </section>
+
+    <!-- Controles grandes para celular e computador (mínimo 44px) -->
+    <footer class="controles-touch">
+      <button id="btn-pular" class="botao-acao botao-pulo" type="button">
+        ⬆️ PULAR
+      </button>
+      <button id="btn-atacar" class="botao-acao botao-fogo" type="button">
+        🔥 ATACAR NO RITMO
+      </button>
+    </footer>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
