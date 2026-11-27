@@ -1,16 +1,16 @@
 {
-  "slug": "meu-jogo",
-  "title": "Nome do meu jogo",
-  "author": "Seu nome",
-  "authorClass": "Sua turma",
-  "discipline": "Matemática",
-  "grades": ["6º", "7º"],
-  "tags": ["palavra-chave", "outra-palavra"],
-  "description": "Uma frase curta que explica o que o jogo ensina.",
-  "instructions": "Como jogar, em uma ou duas frases.",
-  "duration": 5,
+  "slug": "metal-dragon",
+  "title": "MetalDragon",
+  "author": "Arthur (Thurzin)",
+  "authorClass": "8C",
+  "discipline": "Robótica e Computação",
+  "grades": ["6º ano", "7º ano", "8º ano", "9º ano"],
+  "tags": ["plataforma", "ritmo", "rock", "dragao", "pixel-art"],
+  "description": "Ajude o dragão roqueiro a pular plataformas sobre a lava, derrotar guerreiros medievais no ritmo do rock e recuperar seu tesouro em 6 fases.",
+  "instructions": "Use PULAR (seta para cima, W ou Espaço) para atravessar os buracos na lava e aperte ATACAR NO RITMO (Enter, F ou botão na tela) quando a palheta estiver na zona verde para soltar fogo nos guerreiros.",
+  "duration": "2-4 min",
   "version": "1.0.0",
   "entry": "index.html",
   "cover": "cover.svg",
-  "createdAt": "2026-11-02"
+  "createdAt": "2026-11-27"
 }
